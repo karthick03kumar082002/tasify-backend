@@ -1,9 +1,5 @@
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.responses import HTMLResponse
-import os
-import socketio
 from app.core.response import AppException,standard_response
 from app.core.exception_handler import app_exception_handler,validation_exception_handler
 from fastapi.staticfiles import StaticFiles
@@ -13,11 +9,11 @@ from app.routers.v1_master_routes import master_routers
 # ----------------------------
 # Initialize FastAPI app
 # ----------------------------
-fastapi_app = FastAPI(title="Project Management", version="1.0.0")
+app = FastAPI(title="Project Management", version="1.0.0")
 
 
 
-fastapi_app.add_middleware(
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
@@ -30,7 +26,7 @@ fastapi_app.add_middleware(
 # # ----------------------------
 # # Global JWT Middleware
 # # ----------------------------
-@fastapi_app.middleware("http")
+@app.middleware("http")
 async def global_jwt_middleware(request: Request, call_next):
     #  Skip CORS preflight requests
     if request.method == "OPTIONS":
@@ -53,15 +49,22 @@ async def global_jwt_middleware(request: Request, call_next):
     
 
 
-fastapi_app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # ----------------------------
 # Exception Handlers
 # ----------------------------
-fastapi_app.add_exception_handler(AppException, app_exception_handler)
-fastapi_app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 # ----------------------------
 # Routers
 # ----------------------------
-fastapi_app.include_router(master_routers, prefix="/api/v1")
+app.include_router(master_routers, prefix="/api/v1")
+# from fastapi import FastAPI
+
+# app = FastAPI()
+
+# @app.get("/")
+# def root():
+#     return {"message": "Taskify backend alive"}
 

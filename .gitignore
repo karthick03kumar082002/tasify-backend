@@ -64,5 +64,5 @@ migration/
 *.sqlite3
 *.png
 *.jpg
-uploads/
 media
+
