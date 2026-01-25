@@ -1,0 +1,231 @@
+from fastapi import status
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.tasks import Board,BoardColumn,Task,SubTask
+from app.core.response import AppException
+from sqlalchemy.future import select
+from sqlalchemy import select, func
+class BoardService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def create_board(self, payload,current_user):
+        try:
+            result = await self.db.execute(
+                select(Board).where(
+                    Board.user_id == current_user.id,
+                    func.lower(Board.name) == payload.name.lower()
+                )
+            )
+            existing_board = result.scalar_one_or_none()
+
+            if existing_board:
+                raise AppException(
+                    message="Board with this name already exists",
+                    status_code=status.HTTP_409_CONFLICT
+                )
+                
+            board = Board(
+                name=payload.name.strip(),
+                user_id=current_user.id,
+                is_active=payload.isActive
+            )
+            self.db.add(board)
+            await self.db.commit()
+            await self.db.refresh(board)
+
+            return {
+                "success": True,
+                "message": "Board created successfully",
+                "data": {
+                    "board_id": board.id
+                },
+                "error": None
+            }
+        except AppException as e:
+            await self.db.rollback()
+            raise e
+        
+        except Exception as e:
+            await self.db.rollback()
+            raise AppException(
+                message="Unexpected error occurred",
+                error=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+    async def get_all_boards(self, current_user):
+        try:
+            result = await self.db.execute(
+                select(Board).where(Board.user_id == current_user.id)
+            )
+            boards = result.scalars().all()
+
+            return {
+                "success": True,
+                "message": "Boards fetched successfully",
+                "data": boards,
+                "error": None
+            }
+        except Exception as e:
+            raise AppException(
+                message="Failed to fetch boards",
+                error=str(e),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+    async def get_board_by_id(self, board_id: int, current_user):
+        result = await self.db.execute(
+            select(Board).where(
+                Board.id == board_id,
+                Board.user_id == current_user.id
+            )
+        )
+        board = result.scalar_one_or_none()
+
+        if not board:
+            raise AppException(
+                message="Board not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        return {
+            "success": True,
+            "message": "Board fetched successfully",
+            "data": board,
+            "error": None
+        }
+
+    async def update_board(self, board_id: int, payload, current_user):
+        result = await self.db.execute(
+            select(Board).where(
+                Board.id == board_id,
+                Board.user_id == current_user.id
+            )
+        )
+        board = result.scalar_one_or_none()
+
+        if not board:
+            raise AppException(
+                message="Board not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if payload.name is not None:
+            dup_check = await self.db.execute(
+                    select(Board).where(
+                        Board.user_id == current_user.id,
+                        func.lower(Board.name) == payload.name.lower(),
+                        Board.id != board_id
+                    ))
+            existing_board = dup_check.scalar_one_or_none()
+
+            if existing_board:
+                raise AppException(
+                    message="Board with this name already exists",
+                    status_code=status.HTTP_409_CONFLICT
+                )
+            board.name = payload.name.strip()
+        if payload.isActive is not None:
+            board.is_active = payload.isActive
+
+        await self.db.commit()
+        await self.db.refresh(board)
+
+        return {
+            "success": True,
+            "message": "Board updated successfully",
+            "data": board,
+            "error": None
+        }
+    async def delete_board(self, board_id: int, current_user):
+        result = await self.db.execute(
+            select(Board).where(
+                Board.id == board_id,
+                Board.user_id == current_user.id
+            )
+        )
+        board = result.scalar_one_or_none()
+
+        if not board:
+            raise AppException(
+                message="Board not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        await self.db.delete(board)
+        await self.db.commit()
+
+        return {
+            "success": True,
+            "message": "Board deleted successfully",
+            "data": None,
+            "error": None
+        }
+    async def get_boards_with_details(self, current_user):
+        # Fetch all boards for this user
+        result = await self.db.execute(
+            select(Board)
+            .where(Board.user_id == current_user.id)
+        )
+        boards = result.scalars().all()
+        data = []
+
+        for board in boards:
+            board_dict = {
+                "name": board.name,
+                "isActive": board.is_active,
+                "columns": []
+            }
+
+            # Fetch columns for this board
+            columns_result = await self.db.execute(
+                select(BoardColumn)
+                .where(BoardColumn.board_id == board.id)
+            )
+            columns = columns_result.scalars().all()
+
+            for column in columns:
+                column_dict = {
+                    "name": column.name,
+                    "tasks": []
+                }
+
+                # Fetch tasks in this column
+                tasks_result = await self.db.execute(
+                    select(Task)
+                    .where(Task.column_id == column.id)
+                    .order_by(Task.position)
+                )
+                tasks = tasks_result.scalars().all()
+
+                for task in tasks:
+                    # Fetch subtasks for this task
+                    subtasks_result = await self.db.execute(
+                        select(SubTask)
+                        .where(SubTask.task_id == task.id)
+                    )
+                    subtasks = subtasks_result.scalars().all()
+
+                    task_dict = {
+                        "title": task.title,
+                        "description": task.description or "",
+                        "status": column.name,
+                        "subtasks": [
+                            {
+                                "title": s.title,
+                                "isCompleted": s.is_completed
+                            } for s in subtasks
+                        ]
+                    }
+
+                    column_dict["tasks"].append(task_dict)
+
+                board_dict["columns"].append(column_dict)
+
+            data.append(board_dict)
+
+        return {
+            "success": True,
+            "message": "Boards fetched successfully",
+            "data": data,
+            "error": None
+        }

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Welcome to Taskify</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .email-wrapper {
+      width: 100%;
+      padding: 40px 0;
+      background-color: #f4f6f8;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+    .header {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: #ffffff;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .header p {
+      margin-top: 8px;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .content {
+      padding: 35px 40px;
+      color: #333333;
+    }
+    .content h2 {
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+    .content p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #555555;
+    }
+    .highlight-box {
+      background-color: #f9fafb;
+      border-left: 4px solid #4f46e5;
+      padding: 15px 20px;
+      margin: 25px 0;
+      border-radius: 6px;
+    }
+    .cta {
+      text-align: center;
+      margin: 35px 0;
+    }
+    .cta a {
+      background-color: #4f46e5;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px 30px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 30px;
+      display: inline-block;
+    }
+    .cta a:hover {
+      background-color: #4338ca;
+    }
+    .footer {
+      background-color: #f9fafb;
+      text-align: center;
+      padding: 20px 30px;
+      font-size: 13px;
+      color: #888888;
+    }
+    .footer a {
+      color: #4f46e5;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    @media (max-width: 600px) {
+      .content {
+        padding: 25px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="email-wrapper">
+    <div class="email-container">
+
+      <!-- Header -->
+      <div class="header">
+        <h1>Taskify</h1>
+        <p>Organize • Track • Succeed</p>
+      </div>
+
+      <!-- Content -->
+      <div class="content">
+        <h2>Welcome {{full_name}},</h2>
+
+        <p>
+          We’re excited to have you join <strong>Taskify</strong> — your new Platform
+          for managing projects, tracking progress, and getting things done efficiently.
+        </p>
+
+        <div class="highlight-box">
+          <p style="margin: 0;">
+             <strong>Your account has been successfully created.</strong><br/>
+            You can now start organizing tasks, collaborate and boost your productivity.
+          </p>
+        </div>
+
+        <p>
+          Cheers,<br/>
+          <strong>The Taskify Team</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

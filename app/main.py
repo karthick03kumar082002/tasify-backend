@@ -1,0 +1,67 @@
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.responses import HTMLResponse
+import os
+import socketio
+from app.core.response import AppException,standard_response
+from app.core.exception_handler import app_exception_handler,validation_exception_handler
+from fastapi.staticfiles import StaticFiles
+from app.utils.jwt import jwt_middleware ,PUBLIC_URLS
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers.v1_master_routes import master_routers
+# ----------------------------
+# Initialize FastAPI app
+# ----------------------------
+fastapi_app = FastAPI(title="Project Management", version="1.0.0")
+
+
+
+fastapi_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+
+
+
+# # ----------------------------
+# # Global JWT Middleware
+# # ----------------------------
+@fastapi_app.middleware("http")
+async def global_jwt_middleware(request: Request, call_next):
+    #  Skip CORS preflight requests
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
+    # Skip public URLs
+    if any(request.url.path.startswith(path) for path in PUBLIC_URLS):
+        return await call_next(request)
+
+    # Apply JWT logic for protected routes
+    try:
+        return await jwt_middleware(request, call_next)
+    except Exception as e:
+        return standard_response(
+            success=False,
+            message="Unexpected error in middleware",
+            error=str(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    
+
+
+fastapi_app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# ----------------------------
+# Exception Handlers
+# ----------------------------
+fastapi_app.add_exception_handler(AppException, app_exception_handler)
+fastapi_app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+# ----------------------------
+# Routers
+# ----------------------------
+fastapi_app.include_router(master_routers, prefix="/api/v1")
+
