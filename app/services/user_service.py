@@ -78,7 +78,8 @@ def validate_password(password: str):
             error="WEAK_PASSWORD",
         )
 
-    return True
+    return password
+
 
 async def save_media(file: UploadFile, folder: str):
     if not file:
