@@ -177,10 +177,9 @@ class UserService:
             await self.db.commit()
             await self.db.refresh(new_user)
             background_tasks.add_task(
-                user_registered(
-                    to_email=new_user.email,
-                    full_name=new_user.full_name
-                )
+                user_registered, 
+                to_email=new_user.email,
+                full_name=new_user.full_name
             )
 
             # ---------------- SUCCESS RESPONSE ----------------
