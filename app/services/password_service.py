@@ -93,7 +93,7 @@ class PasswordService:
         print("[OTP] OTP saved successfully in DB")
 
         print("[OTP] Scheduling email sending task")
-        BackgroundTasks.create_task(self._send_otp_email(email, otp, OTP_EXPIRY_MINUTES))
+        BackgroundTasks.add_task(self._send_otp_email(email, otp, OTP_EXPIRY_MINUTES))
 
         return {
             "success": True,
