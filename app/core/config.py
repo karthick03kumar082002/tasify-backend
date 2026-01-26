@@ -3,7 +3,8 @@ import secrets
 from decouple import config, Csv
 from pydantic_settings import BaseSettings
 from pathlib import Path
-
+import cloudinary
+import os
 
 class Settings(BaseSettings):
     """
@@ -60,7 +61,16 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = config("SMTP_PASSWORD", default="")
     EMAILS_FROM_EMAIL: str = config("EMAILS_FROM_EMAIL", default="")
     EMAILS_FROM_NAME: str = config("EMAILS_FROM_NAME", default="Zenthogen")
+# -------------------------
+# Railway settins
+# -------------------------
 
+cloudinary.config(
+    cloud_name=config("CLOUDINARY_CLOUD_NAME"),
+    api_key=config("CLOUDINARY_API_KEY"),
+    api_secret=config("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 
 @lru_cache

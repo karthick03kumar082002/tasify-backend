@@ -11,6 +11,7 @@ from fastapi import UploadFile, BackgroundTasks, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from passlib.context import CryptContext
+import cloudinary.uploader
 
 from app.models.users import AuthUser
 from app.core.response import AppException
@@ -79,21 +80,17 @@ def validate_password(password: str):
 
     return True
 
-async def save_media(file: UploadFile, sub_folder: str):
+async def save_media(file: UploadFile, folder: str):
     if not file:
         return None
 
-    upload_dir = os.path.join(BASE_UPLOAD_DIR, PROFILE_IMAGE, sub_folder)
-    os.makedirs(upload_dir, exist_ok=True)
+    result = cloudinary.uploader.upload(
+        file.file,
+        folder=folder,
+        resource_type="image"
+    )
 
-    ext = file.filename.rsplit(".", 1)[-1]
-    file_name = f"{uuid.uuid4()}.{ext}"
-    file_path = os.path.join(upload_dir, file_name)
-
-    with open(file_path, "wb") as buffer:
-        buffer.write(await file.read())
-
-    return file_path
+    return result["secure_url"]
 class UserService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -136,8 +133,7 @@ class UserService:
         # ---------------- PROFILE IMAGE ----------------
         image_path=None
         if profile_image:
-            image=await save_media(profile_image, sub_folder="profile")
-            image_path=normalize_image_url(image)
+           image_path = await save_media(profile_image, folder="taskify/profile")
 
         # ---------------- HASH PASSWORD ----------------
         try:

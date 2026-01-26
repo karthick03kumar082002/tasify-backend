@@ -17,3 +17,4 @@ aiofiles
 sqlalchemy-continuum
 SQLAlchemy-Utils
 python-multipart
+cloudinary

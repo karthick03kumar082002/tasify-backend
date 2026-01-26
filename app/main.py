@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from app.core.response import AppException,standard_response
 from app.core.exception_handler import app_exception_handler,validation_exception_handler
-from fastapi.staticfiles import StaticFiles
+# from fastapi.staticfiles import StaticFiles
 from app.utils.jwt import jwt_middleware ,PUBLIC_URLS
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.v1_master_routes import master_routers
@@ -49,7 +49,7 @@ async def global_jwt_middleware(request: Request, call_next):
     
 
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # ----------------------------
 # Exception Handlers
 # ----------------------------
