@@ -138,8 +138,8 @@ class UserService:
         # ---------------- HASH PASSWORD ----------------
         try:
                    
-            validate_password(password)
-            hashed_password = hash_password(password)
+            final_pass=validate_password(password)
+            hashed_password = hash_password(final_pass)
 
         # ---------------- SAVE USER ----------------
             new_user = AuthUser(
