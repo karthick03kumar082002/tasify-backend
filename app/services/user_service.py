@@ -176,7 +176,7 @@ class UserService:
             self.db.add(new_user)
             await self.db.commit()
             await self.db.refresh(new_user)
-            asyncio.create_task(
+            background_tasks.create_task(
                 user_registered(
                     to_email=new_user.email,
                     full_name=new_user.full_name

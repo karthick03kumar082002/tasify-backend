@@ -3,7 +3,7 @@ from math import ceil
 from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import status
+from fastapi import status,BackgroundTasks
 from app.models.users import AuthUser,RevokedToken
 from app.models.password import PasswordOTP
 from app.utils.mailer import send_otp
@@ -93,7 +93,7 @@ class PasswordService:
         print("[OTP] OTP saved successfully in DB")
 
         print("[OTP] Scheduling email sending task")
-        asyncio.create_task(self._send_otp_email(email, otp, OTP_EXPIRY_MINUTES))
+        BackgroundTasks.create_task(self._send_otp_email(email, otp, OTP_EXPIRY_MINUTES))
 
         return {
             "success": True,
