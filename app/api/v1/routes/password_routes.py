@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends,BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.services.password_service import PasswordService
@@ -11,9 +11,11 @@ router = APIRouter()
 #  Send OTP to Email
 # -------------------------------------------------
 @router.post("/send_otp")
-async def send_otp(request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def send_otp(background_tasks: BackgroundTasks,
+                    request: ForgotPasswordRequest, 
+                   db: AsyncSession = Depends(get_db)):
     service=PasswordService(db)
-    return await service.send_otp(request.email)
+    return await service.send_otp( background_tasks,request.email)
 # -------------------------------------------------
 # Verify OTP
 # -------------------------------------------------

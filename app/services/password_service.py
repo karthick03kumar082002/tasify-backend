@@ -38,7 +38,7 @@ class PasswordService:
     # -------------------------------------------------------
     # 1️. Send OTP to Email
     # -------------------------------------------------------
-    async def send_otp(self, email: str):
+    async def send_otp(self, background_tasks: BackgroundTasks, email: str,):
         print(f"[OTP] Request received for email: {email}")
 
         user = await self.db.scalar(select(AuthUser).where(AuthUser.email == email))
@@ -93,7 +93,7 @@ class PasswordService:
         print("[OTP] OTP saved successfully in DB")
 
         print("[OTP] Scheduling email sending task")
-        BackgroundTasks.add_task(self._send_otp_email(email, otp, OTP_EXPIRY_MINUTES))
+        background_tasks.add_task(self._send_otp_email, email, otp, OTP_EXPIRY_MINUTES)
 
         return {
             "success": True,
