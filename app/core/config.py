@@ -60,7 +60,10 @@ class Settings(BaseSettings):
     SMTP_USER: str = config("SMTP_USER", default="")
     SMTP_PASSWORD: str = config("SMTP_PASSWORD", default="")
     EMAILS_FROM_EMAIL: str = config("EMAILS_FROM_EMAIL", default="")
-    EMAILS_FROM_NAME: str = config("EMAILS_FROM_NAME", default="Zenthogen")
+    EMAILS_FROM_NAME: str = config("EMAILS_FROM_NAME", default="taskify")
+    MAIL_STARTTLS:bool= config("MAIL_STARTTLS", default=True, cast=bool)
+    MAIL_SSL_TLS:bool= config("MAIL_SSL_TLS", default=False, cast=bool)
+    USE_CREDENTIALS:bool= config("USE_CREDENTIALS", default=True, cast=bool)
 # -------------------------
 # Railway settins
 # -------------------------
