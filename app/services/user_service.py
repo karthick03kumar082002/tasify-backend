@@ -84,6 +84,23 @@ def validate_password(password: str):
 async def save_media(file: UploadFile, folder: str):
     if not file:
         return None
+        # ---------- EXTENSION VALIDATION ----------
+    filename = file.filename
+    if not filename:
+        raise AppException(
+            message="Invalid file",
+            error="INVALID_FILE",
+            status_code=400,
+        )
+
+    ext = Path(filename).suffix.lower().lstrip(".")
+
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise AppException(
+            message="Only jpg, jpeg, png, webp images are allowed",
+            error="INVALID_IMAGE_TYPE",
+            status_code=400,
+        )
 
     result = cloudinary.uploader.upload(
         file.file,
