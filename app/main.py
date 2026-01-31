@@ -15,9 +15,11 @@ app = FastAPI(title="Project Management", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    "http://localhost:5173",   
+    allow_origins=[
+        "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://tasify-frontend.vercel.app",  
+        "https://tasify-frontend.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, etc.)
     allow_headers=["*"],  # Allow all headers
@@ -63,11 +65,5 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 # Routers
 # ----------------------------
 app.include_router(master_routers, prefix="/api/v1")
-# from fastapi import FastAPI
 
-# app = FastAPI()
-
-# @app.get("/")
-# def root():
-#     return {"message": "Taskify backend alive"}
 
