@@ -97,7 +97,7 @@ class PasswordService:
 
         return {
             "success": True,
-            "message": "OTP sent successfully",
+            "message": "OTP Sent To Email successfully",
             "data": None,
             "error": None
         }
