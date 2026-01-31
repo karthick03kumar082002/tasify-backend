@@ -15,7 +15,9 @@ app = FastAPI(title="Project Management", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    "http://localhost:5173",   
+        "http://127.0.0.1:5173",
+        "https://tasify-frontend.vercel.app",  
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, etc.)
     allow_headers=["*"],  # Allow all headers
@@ -30,7 +32,8 @@ app.add_middleware(
 async def global_jwt_middleware(request: Request, call_next):
     #  Skip CORS preflight requests
     if request.method == "OPTIONS":
-        return await call_next(request)
+        response = await call_next(request)
+        return response
 
     # Skip public URLs
     if any(request.url.path.startswith(path) for path in PUBLIC_URLS):
