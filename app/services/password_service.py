@@ -9,13 +9,13 @@ from app.models.password import PasswordOTP
 from app.utils.mailer import send_otp
 from app.core.response import AppException
 from passlib.context import CryptContext
-
+from app.services.user_service import validate_password
 from app.validations.strong_pass import strongPassword
 
 
 # ------------------------------------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-OTP_EXPIRY_MINUTES= 2
+OTP_EXPIRY_MINUTES= 3
 
 # ==============================================================
 #  TIME  functions
@@ -167,53 +167,74 @@ class PasswordService:
     # -------------------------------------------------------
     # 3️. Reset Password after OTP verification
     # -------------------------------------------------------
-    async def reset_password(self, email: str, new_password: str, confirm_password: str):
-        otp_record = await self.db.scalar(select(PasswordOTP).where(PasswordOTP.email == email,PasswordOTP.type=="otp"))
-        if not otp_record:
-            user = await self.db.scalar(select(AuthUser).where(AuthUser.email == email))
-            if user and user.updated_at:
-                    raise AppException(
-                        message=f"Password updated recently. Try again after few minute(s).",
-                        error="PASSWORD_RECENTLY_UPDATED",
-                        status_code=400
-                    )
-            raise AppException(
-                message="Invalid Email",
-                error="Email Not Found",
-                status_code=400
-            )
-           # password strength
-        if not strongPassword(new_password):
-            raise AppException(
-                message="Password is too weak...",
-                error="Weak Password",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
+    async def reset_password(
+        self,
+        email: str,
+        new_password: str,
+        confirm_password: str
+    ):
+        # Password match
         if new_password != confirm_password:
-                raise AppException(
+            raise AppException(
                 message="Passwords do not match",
                 error="INVALID_PASSWORD",
-                status_code=status.HTTP_400_BAD_REQUEST
+                status_code=400
             )
 
-        # OTP must still be valid and verified
-        if not otp_record.is_verified or otp_record.expires_at < datetime.utcnow():
-            raise AppException(
-                message="OTP expired or Not verified For this Mail",
-                error="Invalid OTP",
-                status_code=status.HTTP_400_BAD_REQUEST
+        #  Validate strength
+        validate_password(new_password)
+
+        #  Fetch OTP
+        otp_record = await self.db.scalar(
+            select(PasswordOTP).where(
+                PasswordOTP.email == email,
+                PasswordOTP.type == "otp"
             )
-    # get user
-        user = await self.db.scalar(select(AuthUser).where(AuthUser.email == email))
+        )
+
+        if not otp_record:
+            raise AppException(
+                message="Invalid or expired OTP",
+                error="INVALID_OTP",
+                status_code=400
+            )
+
+        #  OTP validation
+        if not otp_record.is_verified:
+            raise AppException(
+                message="OTP not verified",
+                error="OTP_NOT_VERIFIED",
+                status_code=400
+            )
+
+        if otp_record.expires_at < datetime.utcnow():
+            raise AppException(
+                message="OTP expired",
+                error="OTP_EXPIRED",
+                status_code=400
+            )
+
+        #  Fetch user
+        user = await self.db.scalar(
+            select(AuthUser).where(AuthUser.email == email)
+        )
+
         if not user:
             raise AppException(
                 message="User not found",
-                error="Invalid User",
-                status_code=status.HTTP_400_BAD_REQUEST
+                error="INVALID_USER",
+                status_code=400
             )
+
+        #  Update password
         user.password = pwd_context.hash(new_password)
+        self.db.add(user)
+
+        #  Delete OTP
         await self.db.delete(otp_record)
+
         await self.db.commit()
+
         return {
             "success": True,
             "message": "Password updated successfully",
