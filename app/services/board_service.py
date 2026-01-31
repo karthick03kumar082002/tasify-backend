@@ -4,32 +4,71 @@ from app.models.tasks import Board,BoardColumn,Task,SubTask
 from app.core.response import AppException
 from sqlalchemy.future import select
 from sqlalchemy import select, func
+import re
+from app.schema.task_schema import BoardCreate
+from sqlalchemy.orm import selectinload
+
+def normalize_name(name: str) -> str:
+    return re.sub(r'[\s\-_]+', '', name).lower()
 class BoardService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_board(self, payload,current_user):
+    async def create_board(self, payload: BoardCreate, current_user):
         try:
-            result = await self.db.execute(
+            #  Check duplicate board for user
+            existing = await self.db.scalar(
                 select(Board).where(
                     Board.user_id == current_user.id,
                     func.lower(Board.name) == payload.name.lower()
                 )
             )
-            existing_board = result.scalar_one_or_none()
 
-            if existing_board:
+            if existing:
                 raise AppException(
                     message="Board with this name already exists",
                     status_code=status.HTTP_409_CONFLICT
                 )
-                
+
+            #  Create board
             board = Board(
                 name=payload.name.strip(),
                 user_id=current_user.id,
                 is_active=payload.isActive
             )
             self.db.add(board)
+            await self.db.flush() 
+
+            created_columns = []
+
+            # -------------------------
+            # Create columns (optional)
+            # -------------------------
+            if payload.columns:
+                seen = set()
+
+                for col in payload.columns:
+                    normalized = normalize_name(col.name)
+
+                    if normalized in seen:
+                        raise AppException(
+                            message="Duplicate column names in request",
+                            status_code=status.HTTP_409_CONFLICT
+                        )
+
+                    seen.add(normalized)
+
+                    column = BoardColumn(
+                        name=col.name.strip(),
+                        board_id=board.id
+                    )
+
+                    self.db.add(column)
+                    created_columns.append(column)
+
+            # -------------------------
+            # Commit
+            # -------------------------
             await self.db.commit()
             await self.db.refresh(board)
 
@@ -37,20 +76,30 @@ class BoardService:
                 "success": True,
                 "message": "Board created successfully",
                 "data": {
-                    "board_id": board.id
+                    "board_id": board.id,
+                    "name": board.name,
+                    "is_active": board.is_active,
+                    "columns": [
+                        {
+                            "id": col.id,
+                            "name": col.name
+                        }
+                        for col in created_columns
+                    ]
                 },
                 "error": None
             }
-        except AppException as e:
+
+        except AppException:
             await self.db.rollback()
-            raise e
-        
+            raise
+
         except Exception as e:
             await self.db.rollback()
             raise AppException(
                 message="Unexpected error occurred",
                 error=str(e),
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     async def get_all_boards(self, current_user):
         try:
@@ -94,14 +143,18 @@ class BoardService:
             "error": None
         }
 
+
+
     async def update_board(self, board_id: int, payload, current_user):
-        result = await self.db.execute(
-            select(Board).where(
+
+        board = await self.db.scalar(
+            select(Board)
+            .options(selectinload(Board.columns))
+            .where(
                 Board.id == board_id,
                 Board.user_id == current_user.id
             )
         )
-        board = result.scalar_one_or_none()
 
         if not board:
             raise AppException(
@@ -110,32 +163,78 @@ class BoardService:
             )
 
         if payload.name is not None:
-            dup_check = await self.db.execute(
-                    select(Board).where(
-                        Board.user_id == current_user.id,
-                        func.lower(Board.name) == payload.name.lower(),
-                        Board.id != board_id
-                    ))
-            existing_board = dup_check.scalar_one_or_none()
+            dup = await self.db.scalar(
+                select(Board).where(
+                    Board.user_id == current_user.id,
+                    func.lower(Board.name) == payload.name.lower(),
+                    Board.id != board_id
+                )
+            )
 
-            if existing_board:
+            if dup:
                 raise AppException(
                     message="Board with this name already exists",
                     status_code=status.HTTP_409_CONFLICT
                 )
+
             board.name = payload.name.strip()
+
         if payload.isActive is not None:
             board.is_active = payload.isActive
 
+        if payload.columns is not None:
+            existing_columns = {col.id: col for col in board.columns}
+            incoming_ids = set()
+            seen = set()
+
+            for col in payload.columns:
+                normalized = normalize_name(col.name)
+
+                if normalized in seen:
+                    raise AppException(
+                        message="Duplicate column names in request",
+                        status_code=status.HTTP_409_CONFLICT
+                    )
+                seen.add(normalized)
+
+                if col.id:
+                    column = existing_columns.get(col.id)
+                    if not column:
+                        raise AppException(
+                            message="Column not found",
+                            status_code=status.HTTP_404_NOT_FOUND
+                        )
+                    column.name = col.name.strip()
+                    incoming_ids.add(col.id)
+                else:
+                    self.db.add(
+                        BoardColumn(
+                            name=col.name.strip(),
+                            board_id=board.id
+                        )
+                    )
+
+            for col_id, column in existing_columns.items():
+                if col_id not in incoming_ids:
+                    await self.db.delete(column)
+
         await self.db.commit()
-        await self.db.refresh(board)
 
         return {
             "success": True,
             "message": "Board updated successfully",
-            "data": board,
+            "data": {
+                "board_id": board.id,
+                "name": board.name,
+                "is_active": board.is_active,
+                "columns": [
+                    {"id": col.id, "name": col.name}
+                    for col in board.columns
+                ]
+            },
             "error": None
         }
+
     async def delete_board(self, board_id: int, current_user):
         result = await self.db.execute(
             select(Board).where(

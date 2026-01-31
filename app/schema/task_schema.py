@@ -2,45 +2,61 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
-
+class ColumnCreate(BaseModel):
+    name: str
+    board_id: int
+    
+class ColumnCreation(BaseModel):
+    name: str
+    
 class BoardCreate(BaseModel):
     name: str
     isActive: bool = True
+    columns: Optional[List[ColumnCreation]] = None
+    
+    
+class ColumnUpdate(BaseModel):
+    id: Optional[int] = None 
+    name: Optional[str] = None
 
 class BoardUpdate(BaseModel):
     name: Optional[str]= None
     isActive: Optional[bool]= None
+    columns: Optional[List[ColumnUpdate]] = None
 
 
 
 
-class ColumnCreate(BaseModel):
-    name: str
-    board_id: int
-
-class ColumnUpdate(BaseModel):
-    name: Optional[str] = None
 
 
 
-
-class TaskCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
-    column_id: int
-
-class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    column_id: Optional[int] = None 
 
 
 class SubTaskCreate(BaseModel):
     title: str
     task_id: int
+    
+class SubTaskCreation(BaseModel):
+    title: str
+    
+class TaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    column_id: int
+    subtasks: Optional[list[SubTaskCreation]] = None
+    # subtasks: list[SubTaskCreation] 
 class SubTaskUpdate(BaseModel):
+    id: Optional[int] = None 
     title: Optional[str] = None
     is_completed: Optional[bool] = None
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    column_id: Optional[int] = None 
+    subtasks: Optional[List[SubTaskUpdate]] = None
+
+
 
 
 

@@ -1,6 +1,6 @@
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.tasks import Board,BoardColumn,Task
+from app.models.tasks import Board,BoardColumn,Task,SubTask
 from app.core.response import AppException
 from app.services.column_service import normalize_name
 from sqlalchemy import select, func,update
@@ -16,6 +16,8 @@ class TaskService:
         self.db = db
 
     async def create_task(self, payload, current_user):
+        print("➡️ CREATE TASK CALLED")
+        print("Payload:", payload.model_dump())
         column = await self.db.scalar(
             select(BoardColumn).where(
                 BoardColumn.id == payload.column_id,
@@ -27,6 +29,7 @@ class TaskService:
                 message="Column not found",
                 status_code=status.HTTP_404_NOT_FOUND
             )
+        print("Column found:", bool(column))
         normalized = normalize_name(payload.title)
         dup = await self.db.scalar(
                 select(Task).where(
@@ -55,14 +58,45 @@ class TaskService:
             position=next_position
         )
         self.db.add(task)
+        await self.db.flush() 
+        print("SUBTASKS PAYLOAD:", payload.subtasks)
+        if payload.subtasks:
+            seen = set()
+            for sub in payload.subtasks:
+                key = sub.title.strip().lower()
+                if key in seen:
+                    raise AppException("Duplicate subtasks in request", status_code=409)
+                seen.add(key)
+
+                self.db.add(
+                    SubTask(
+                        title=sub.title.strip(),
+                        task_id=task.id
+                    )
+                )
+
         await self.db.commit()
-        await self.db.refresh(task)
+        result = await self.db.execute(
+            select(SubTask).where(SubTask.task_id == task.id)
+        )
+        subtasks = result.scalars().all()
         return {
             "success": True,
             "message": "Task created successfully",
             "data": {
                 "task_id": task.id,
-                "status": column.name  
+                "title": task.title,
+                "description": task.description,
+                "status": column.name,
+                "position": task.position,
+                "subtasks": [
+                    {
+                        "id": sub.id,
+                        "title": sub.title,
+                        "is_completed": sub.is_completed
+                    }
+                    for sub in subtasks
+                ]
             },
             "error": None
         }
@@ -107,6 +141,7 @@ class TaskService:
         }
     
     async def get_task_by_id(self, task_id: int, current_user):
+        # Fetch task + column name
         result = await self.db.execute(
             select(Task, BoardColumn.name)
             .join(BoardColumn, Task.column_id == BoardColumn.id)
@@ -125,6 +160,10 @@ class TaskService:
             )
 
         task, column_name = row
+        subtask_result = await self.db.execute(
+            select(SubTask).where(SubTask.task_id == task.id)
+        )
+        subtasks = subtask_result.scalars().all()
 
         return {
             "success": True,
@@ -134,11 +173,21 @@ class TaskService:
                 "title": task.title,
                 "description": task.description,
                 "column_id": task.column_id,
-                "status": column_name,  
-                "position": task.position
+                "status": column_name,
+                "position": task.position,
+                "subtasks": [
+                    {
+                        "id": sub.id,
+                        "title": sub.title,
+                        "is_completed": sub.is_completed
+                    }
+                    for sub in subtasks
+                ],
+                
             },
             "error": None
         }
+
 
     
     async def update_task(self, task_id: int, payload, current_user):
@@ -194,6 +243,43 @@ class TaskService:
                 )
 
             task.column_id = payload.column_id
+          
+        if payload.subtasks is not None:
+
+            existing_subtasks = {st.id: st for st in task.subtasks}
+            incoming_ids = set()
+
+            for sub in payload.subtasks:
+
+                # Update existing subtask
+                if sub.id:
+                    if sub.id not in existing_subtasks:
+                        raise AppException(
+                            message=f"Subtask {sub.id} not found",
+                            status_code=status.HTTP_404_NOT_FOUND
+                        )
+
+                    st = existing_subtasks[sub.id]
+                    st.title = sub.title.strip()
+                    st.isCompleted = sub.isCompleted
+                    incoming_ids.add(sub.id)
+
+                # Create new subtask
+                else:
+                    new_subtask = SubTask(
+                        title=sub.title.strip(),
+                        isCompleted=sub.isCompleted,
+                        task_id=task.id
+                    )
+                    self.db.add(new_subtask)
+
+            # Delete removed subtasks
+            for st_id, st in existing_subtasks.items():
+                if st_id not in incoming_ids:
+                    await self.db.delete(st)
+
+            
+        
 
         await self.db.commit()
         await self.db.refresh(task)

@@ -5,6 +5,9 @@ from app.core.response import AppException
 from sqlalchemy.future import select
 from sqlalchemy import select, func
 import re
+from sqlalchemy.orm import selectinload
+
+from app.models import Task
 
 def normalize_name(name: str) -> str:
     return re.sub(r'[\s\-_]+', '', name).lower()
@@ -91,15 +94,49 @@ class ColumnService:
             )
 
         result = await self.db.execute(
-            select(BoardColumn).where(BoardColumn.board_id == board_id)
+            select(BoardColumn)
+            .where(BoardColumn.board_id == board_id)
+            .options(
+                selectinload(BoardColumn.tasks)
+                .selectinload(Task.subtasks)
+            )
         )
+
+        columns = []
+
+        for column in result.scalars().all():
+            column_data = {
+                "id": column.id,
+                "name": column.name,
+                "tasks": []
+            }
+
+            for task in sorted(column.tasks, key=lambda t: t.position):
+                total = len(task.subtasks)
+                completed = sum(1 for s in task.subtasks if s.is_completed)
+                pending = total - completed
+
+                column_data["tasks"].append({
+                    "id": task.id,
+                    "title": task.title,
+                    "description": task.description,
+                    "position": task.position,
+                    "subtasks": {
+                        "total": total,
+                        "completed": completed,
+                        "pending": pending
+                    }
+                })
+
+            columns.append(column_data)
 
         return {
             "success": True,
             "message": "Columns fetched successfully",
-            "data": result.scalars().all(),
+            "data": columns,
             "error": None
         }
+
     
     async def get_column_by_id(self, column_id: int, current_user):
         result = await self.db.execute(
